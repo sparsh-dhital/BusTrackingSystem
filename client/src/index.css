@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-/* You can add your custom body styles here if needed */
+@variant dark (&:where(.dark, .dark *));
+
 html {
   scroll-behavior: smooth;
 }
