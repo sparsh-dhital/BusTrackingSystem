@@ -6,13 +6,25 @@ html {
   scroll-behavior: smooth;
 }
 
+/* 1. Mobile-First: Bus goes all the way across the screen (100vw) */
 @keyframes driveLoop {
   0% {
     transform: translateX(-180px);
   }
   100% {
-    /* Adjusted to 50vw so it stops at the edge of the dark section */
-    transform: translateX(calc(50vw + 180px));
+    transform: translateX(calc(100vw + 180px));
+  }
+}
+
+/* 2. Desktop: Bus stops halfway once the screen splits (50vw) */
+@media (min-width: 1024px) {
+  @keyframes driveLoop {
+    0% {
+      transform: translateX(-180px);
+    }
+    100% {
+      transform: translateX(calc(50vw + 180px));
+    }
   }
 }
 
@@ -25,11 +37,18 @@ html {
   }
 }
 
+/* 3. Mobile-First: Recent speed (5s) */
 .animate-drive-loop {
-  /* Dropped from 10s to 5s since the travel distance is now cut in half */
   animation: driveLoop 5s linear infinite;
   will-change: transform;
   transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* 4. Desktop: Previous speed (5s) */
+@media (min-width: 1024px) {
+  .animate-drive-loop {
+    animation: driveLoop 5s linear infinite;
+  }
 }
 
 .animate-dash-scroll {
