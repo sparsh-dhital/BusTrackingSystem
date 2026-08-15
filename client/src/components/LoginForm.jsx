@@ -54,7 +54,7 @@ export default function LoginForm({ onLogin }) {
                 VIGNAN
               </span>
               <span className="mt-2 flex items-center gap-4 text-xl font-light tracking-[0.3em] text-white sm:text-2xl lg:text-3xl">
-                <span className="h-[2px] w-12 rounded-full bg-gradient-to-r from-transparent to-[#FFCC00] opacity-70"></span>
+                <span className="h-0.5 w-12 rounded-full bg-gradient-to-r from-transparent to-[#FFCC00] opacity-70"></span>
                 <span className="font-semibold text-[#FFCC00]">TMS</span>
                 <span className="h-[2px] w-12 rounded-full bg-gradient-to-l from-transparent to-[#FFCC00] opacity-70"></span>
               </span>
@@ -70,7 +70,7 @@ export default function LoginForm({ onLogin }) {
           <div className="relative w-full h-24">
             <div className="absolute inset-x-0 bottom-0 w-full h-14 border-y border-[#38383A] bg-[#1C1C1E]/40 backdrop-blur-sm"></div>
 
-            <div className="absolute bottom-6 inset-x-0 h-[2px] animate-dash-scroll bg-[repeating-linear-gradient(90deg,transparent,transparent_15px,#FFFFFF_15px,#FFFFFF_30px)]"></div>
+            <div className="absolute bottom-6 inset-x-0 h-0.5 animate-dash-scroll bg-[repeating-linear-gradient(90deg,transparent,transparent_15px,#FFFFFF_15px,#FFFFFF_30px)]"></div>
 
             <div className="absolute bottom-6 left-0 animate-drive-loop">
               <svg
@@ -115,7 +115,7 @@ export default function LoginForm({ onLogin }) {
       {/* RIGHT PANE */}
       <div className="relative flex w-full overflow-hidden items-center justify-center p-8 lg:w-1/2">
         <div className="pointer-events-none absolute -right-20 -top-20 h-96 w-96 rounded-full bg-[#007AFF]/15 blur-[100px] transition-opacity duration-500 dark:bg-[#0A84FF]/25"></div>
-        <div className="pointer-events-none absolute -bottom-32 -left-20 h-[28rem] w-[28rem] rounded-full bg-[#AF52DE]/10 blur-[120px] transition-opacity duration-500 dark:bg-[#5E5CE6]/20"></div>
+        <div className="pointer-events-none absolute -bottom-32 -left-20 h-112 w-md rounded-full bg-[#AF52DE]/10 blur-[120px] transition-opacity duration-500 dark:bg-[#5E5CE6]/20"></div>
 
         <form
           onSubmit={handleSubmit}

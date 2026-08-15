@@ -42,7 +42,7 @@ export default function App() {
 
   // 3. If the app is initializing, show the splash screen loader!
   if (isAppLoading) {
-    return <BusLoader message="Loading TransitFlow..." />;
+      return <BusLoader message="Loading Vignan TMS..." />;
   }
 
   return (
