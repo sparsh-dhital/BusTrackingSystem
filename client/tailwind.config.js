@@ -1,4 +1,3 @@
-// client/tailwind.config.js
 export default {
   content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
   darkMode: "class",
@@ -6,12 +5,14 @@ export default {
     extend: {
       keyframes: {
         "drive-loop": {
-          "0%": { left: "-160px" },
-          "100%": { left: "calc(100% + 160px)" },
+          // Changed to transform for GPU acceleration and to prevent conflicts with 'left-0'
+          "0%": { transform: "translateX(-160px)" },
+          "100%": { transform: "translateX(100vw)" },
         },
         "dash-scroll": {
           "0%": { backgroundPosition: "0px 0" },
-          "100%": { backgroundPosition: "-40px 0" },
+          // Changed to -30px to perfectly match the 30px repeating gradient in LoginForm.jsx
+          "100%": { backgroundPosition: "-30px 0" },
         },
       },
       animation: {

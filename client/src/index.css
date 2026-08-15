@@ -5,3 +5,34 @@
 html {
   scroll-behavior: smooth;
 }
+
+@keyframes driveLoop {
+  0% {
+    transform: translateX(-180px);
+  }
+  100% {
+    /* Adjusted to 50vw so it stops at the edge of the dark section */
+    transform: translateX(calc(50vw + 180px));
+  }
+}
+
+@keyframes dashScroll {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: -36px 0;
+  }
+}
+
+.animate-drive-loop {
+  /* Dropped from 10s to 5s since the travel distance is now cut in half */
+  animation: driveLoop 5s linear infinite;
+  will-change: transform;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.animate-dash-scroll {
+  animation: dashScroll 1.8s linear infinite;
+  background-size: 36px 100%;
+}
