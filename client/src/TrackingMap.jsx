@@ -1,51 +1,36 @@
-import React, { useEffect, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import { io } from "socket.io-client";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-
-let DefaultIcon = L.icon({
-  iconUrl: icon,
-  shadowUrl: iconShadow,
-});
-L.Marker.prototype.options.icon = DefaultIcon;
-
-const socket = io("http://localhost:5000");
-
+// client/src/TrackingMap.jsx
 export default function TrackingMap() {
-  const [busPosition, setBusPosition] = useState([16.2736, 80.5367]);
-  const routeId = "route_123";
-
-  useEffect(() => {
-    socket.emit("join_route", { routeId });
-
-    socket.on("bus_location_broadcast", (data) => {
-      setBusPosition([data.latitude, data.longitude]);
-    });
-
-    return () => {
-      socket.off("bus_location_broadcast");
-    };
-  }, []);
-
   return (
-    <div style={{ height: "500px", width: "100%", marginTop: "20px" }}>
-      <MapContainer
-        center={busPosition}
-        zoom={13}
-        style={{ height: "100%", width: "100%" }}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution="&copy; OpenStreetMap contributors"
-        />
-        <Marker position={busPosition}>
-          <Popup>Live Bus Location</Popup>
-        </Marker>
-      </MapContainer>
+    <div className="flex min-h-screen flex-col bg-transit-light transition-colors dark:bg-transit-dark">
+      {/* Map Header */}
+      <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 transition-colors dark:border-slate-800 dark:bg-slate-900">
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+            Live Tracking
+          </h1>
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            Campus Route A
+          </p>
+        </div>
+        <div className="flex items-center gap-2 rounded-full bg-slate-100 px-4 py-1.5 dark:bg-slate-800">
+          <span
+            className="h-2 w-2 animate-pulse rounded-full bg-transit-amber"
+            aria-hidden="true"
+          ></span>
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            Live
+          </span>
+        </div>
+      </header>
+
+      {/* Map Container Placeholder */}
+      <div className="relative flex-1 bg-slate-200 dark:bg-slate-800/50">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <p className="text-lg font-medium text-slate-500 dark:text-slate-400">
+            [ Interactive Map Rendered Here ]
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

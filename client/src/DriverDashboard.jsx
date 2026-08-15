@@ -1,58 +1,45 @@
-import React, { useEffect, useState } from "react";
-import { io } from "socket.io-client";
-
-const socket = io("http://localhost:5000");
-
+// client/src/DriverDashboard.jsx
 export default function DriverDashboard() {
-  const [tracking, setTracking] = useState(false);
-  const routeId = "route_123";
-
-  useEffect(() => {
-    let watchId;
-
-    if (tracking) {
-      if (navigator.geolocation) {
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            const data = {
-              routeId: routeId,
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            };
-            socket.emit("driver_location_update", data);
-          },
-          (error) => console.log(error),
-          { enableHighAccuracy: true, maximumAge: 0 },
-        );
-      }
-    }
-
-    return () => {
-      if (watchId) navigator.geolocation.clearWatch(watchId);
-    };
-  }, [tracking]);
-
-  const markAttendance = () => {
-    console.log("Attendance recorded successfully");
-  };
-
   return (
-    <div className="p-4">
-      <h1 className="text-2xl mb-4">Driver Portal</h1>
-      <div className="bg-white p-4 shadow rounded">
-        <p>Assigned Route: {routeId}</p>
-        <button
-          className="bg-blue-600 text-white p-2 rounded mt-4 mr-4"
-          onClick={() => setTracking(!tracking)}
-        >
-          {tracking ? "Stop Location Broadcast" : "Start Trip Broadcast"}
-        </button>
-        <button
-          className="bg-green-600 text-white p-2 rounded mt-4"
-          onClick={markAttendance}
-        >
-          Mark Daily Attendance
-        </button>
+    <div className="min-h-screen bg-transit-light p-6 transition-colors dark:bg-transit-dark lg:p-12">
+      <header className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+          Driver Portal
+        </h1>
+        <p className="text-slate-600 dark:text-slate-400">
+          Manage your active route and vehicle status.
+        </p>
+      </header>
+
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Status Card */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Current Status
+          </h2>
+          <div className="flex items-center gap-3">
+            <span
+              className="flex h-3 w-3 rounded-full bg-green-500"
+              aria-hidden="true"
+            ></span>
+            <span className="text-xl font-bold text-slate-900 dark:text-white">
+              On Route
+            </span>
+          </div>
+        </div>
+
+        {/* Next Stop Card */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="mb-2 text-sm font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Next Stop
+          </h2>
+          <p className="text-xl font-bold text-slate-900 dark:text-white">
+            Engineering Block B
+          </p>
+          <p className="mt-1 text-sm font-medium text-transit-blue">
+            Arriving in 4 mins
+          </p>
+        </div>
       </div>
     </div>
   );
