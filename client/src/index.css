@@ -1,3 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* You can add your custom body styles here if needed */
+html {
+  scroll-behavior: smooth;
+}
