@@ -21,14 +21,9 @@ import TrackingMap from "./TrackingMap";
 
 export default function App() {
   const [user, setUser] = useState(null);
-
-  // 1. Create a global loading state that starts as TRUE
   const [isAppLoading, setIsAppLoading] = useState(true);
 
-  // 2. Simulate initial app hydration/loading process
   useEffect(() => {
-    // In a real app, you'd check localStorage or verify a token here.
-    // For now, we simulate a 1.5-second initial load.
     const timer = setTimeout(() => {
       setIsAppLoading(false);
     }, 1500);
@@ -37,12 +32,11 @@ export default function App() {
   }, []);
 
   const handleLogin = (credentials) => {
-    setUser({ role: credentials.role, email: credentials.email });
+    setUser({ role: credentials.role, id: credentials.idNumber });
   };
 
-  // 3. If the app is initializing, show the splash screen loader!
   if (isAppLoading) {
-      return <BusLoader message="Loading Vignan TMS..." />;
+    return <BusLoader message="Loading Vignan TMS..." />;
   }
 
   return (
@@ -51,8 +45,21 @@ export default function App() {
       <AdminCommandPalette />
 
       <Routes>
+        {/* Root path redirects unauthenticated users to /login, or to their portal if logged in */}
         <Route
           path="/"
+          element={
+            !user ? (
+              <Navigate to="/login" replace />
+            ) : (
+              <Navigate to={`/${user.role}-portal`} replace />
+            )
+          }
+        />
+
+        {/* Explicit Login Page Route */}
+        <Route
+          path="/login"
           element={
             !user ? (
               <LoginForm onLogin={handleLogin} />
