@@ -16,14 +16,17 @@ import ThemeToggle from "./components/ThemeToggle";
 import BusLoader from "./components/BusLoader";
 
 // Pages
-import DriverDashboard from "./DriverDashboard";
-import TrackingMap from "./TrackingMap";
+import StudentDashboard from "./pages/StudentDashboard";
+import DriverDashboard from "./pages/DriverDashboard";
+import AdminDashboard from "./pages/AdminDashboard";
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [isAppLoading, setIsAppLoading] = useState(true);
 
+  // Simulate initial app hydration/loading process
   useEffect(() => {
+    // In a real app, you'd check localStorage or verify a JWT token here.
     const timer = setTimeout(() => {
       setIsAppLoading(false);
     }, 1500);
@@ -35,6 +38,11 @@ export default function App() {
     setUser({ role: credentials.role, id: credentials.idNumber });
   };
 
+  const handleLogout = () => {
+    setUser(null);
+  };
+
+  // If the app is initializing, show the splash screen loader
   if (isAppLoading) {
     return <BusLoader message="Loading Vignan TMS..." />;
   }
@@ -42,7 +50,8 @@ export default function App() {
   return (
     <Router>
       <ThemeToggle />
-      <AdminCommandPalette />
+      {/* UPDATE: Passed handleLogin to onAdminLogin prop */}
+      <AdminCommandPalette onAdminLogin={handleLogin} />
 
       <Routes>
         {/* Root path redirects unauthenticated users to /login, or to their portal if logged in */}
@@ -69,24 +78,37 @@ export default function App() {
           }
         />
 
+        {/* --- PROTECTED ROUTE: Student Portal --- */}
         <Route
           path="/student-portal"
           element={
             <ProtectedRoute userRole={user?.role} requiredRole="student">
-              <TrackingMap />
+              <StudentDashboard onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />
 
+        {/* --- PROTECTED ROUTE: Driver Portal --- */}
         <Route
           path="/driver-portal"
           element={
             <ProtectedRoute userRole={user?.role} requiredRole="driver">
-              <DriverDashboard />
+              <DriverDashboard onLogout={handleLogout} />
             </ProtectedRoute>
           }
         />
 
+        {/* --- PROTECTED ROUTE: Admin Portal --- */}
+        <Route
+          path="/admin-portal"
+          element={
+            <ProtectedRoute userRole={user?.role} requiredRole="admin">
+              <AdminDashboard onLogout={handleLogout} />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Catch-All Route for 404s */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>
