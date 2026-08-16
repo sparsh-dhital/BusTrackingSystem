@@ -12,7 +12,6 @@ import LoginForm from "./components/LoginForm";
 import ProtectedRoute from "./components/ProtectedRoute";
 import AdminCommandPalette from "./components/AdminCommandPalette";
 import NotFound from "./components/NotFound";
-import ThemeToggle from "./components/ThemeToggle";
 import BusLoader from "./components/BusLoader";
 
 // Pages
@@ -49,7 +48,6 @@ export default function App() {
 
   return (
     <Router>
-      <ThemeToggle />
       {/* UPDATE: Passed handleLogin to onAdminLogin prop */}
       <AdminCommandPalette onAdminLogin={handleLogin} />
 

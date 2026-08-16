@@ -1,7 +1,7 @@
 // client/src/components/ThemeToggle.jsx
 import { useState, useEffect } from "react";
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ className = "" }) {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
@@ -23,13 +23,14 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="fixed right-4 top-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-white/50 p-3 shadow-lg backdrop-blur-md transition-all hover:bg-white focus:outline-none focus:ring-2 focus:ring-transit-blue dark:bg-slate-800/50 dark:hover:bg-slate-800"
       aria-label="Toggle Dark Mode"
       aria-pressed={isDarkMode}
+      // Removed fixed positioning. Added glassy effect and removed browser outlines.
+      className={`flex h-11 w-11 items-center justify-center rounded-full border border-white/40 bg-white/30 p-2.5 text-[#1D1D1F] shadow-[0_8px_32px_rgba(0,0,0,0.1)] backdrop-blur-xl transition-all duration-300 hover:scale-110 active:scale-95 outline-none focus:outline-none [-webkit-tap-highlight-color:transparent] dark:border-white/10 dark:bg-white/10 dark:text-[#F5F5F7] dark:hover:bg-white/20 ${className}`}
     >
       {isDarkMode ? (
         <svg
-          className="h-full w-full text-amber-400"
+          className="h-full w-full text-amber-400 drop-shadow-md"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -44,7 +45,7 @@ export default function ThemeToggle() {
         </svg>
       ) : (
         <svg
-          className="h-full w-full text-slate-700"
+          className="h-full w-full drop-shadow-md"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

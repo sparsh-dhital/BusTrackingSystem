@@ -1,6 +1,7 @@
 // client/src/components/LoginForm.jsx
 import { useState } from "react";
 import BusLoader from "./BusLoader";
+import ThemeToggle from "./ThemeToggle"; // <-- Imported ThemeToggle
 
 export default function LoginForm({ onLogin }) {
   const [role, setRole] = useState("student");
@@ -111,6 +112,9 @@ export default function LoginForm({ onLogin }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F5F5F7] text-[#1D1D1F] transition-colors duration-500 dark:bg-black dark:text-[#F5F5F7] lg:flex-row">
+      {/* --- THE SWEET SPOT FOR LOGIN PAGE --- */}
+      <ThemeToggle className="absolute right-6 top-6 z-50" />
+
       {/* LEFT PANE - Vertically centered stack containing typography, submessage, and the road */}
       <div
         className="relative flex min-h-[500px] w-full flex-col items-center justify-center overflow-hidden bg-black text-white shadow-2xl lg:min-h-screen lg:w-1/2 py-12"

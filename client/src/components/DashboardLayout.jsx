@@ -1,5 +1,6 @@
 // client/src/components/DashboardLayout.jsx
 import React from "react";
+import ThemeToggle from "./ThemeToggle";
 
 export default function DashboardLayout({
   children,
@@ -24,25 +25,30 @@ export default function DashboardLayout({
           </span>
         </div>
 
-        <button
-          onClick={onLogout}
-          className="flex items-center gap-2 rounded-xl bg-black/5 px-4 py-2.5 text-sm font-semibold transition-all hover:bg-black/10 active:scale-95 dark:bg-white/10 dark:hover:bg-white/20"
-        >
-          <svg
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
+        {/* --- THE SWEET SPOT --- */}
+        <div className="flex items-center gap-4">
+          <ThemeToggle />
+
+          <button
+            onClick={onLogout}
+            className="flex h-11 items-center gap-2 rounded-xl bg-black/5 px-4 font-semibold transition-all hover:bg-black/10 active:scale-95 dark:bg-white/10 dark:hover:bg-white/20"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-            />
-          </svg>
-          <span className="hidden sm:inline">Sign Out</span>
-        </button>
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+              />
+            </svg>
+            <span className="hidden text-sm sm:inline">Sign Out</span>
+          </button>
+        </div>
       </header>
 
       {/* Main Content Area */}

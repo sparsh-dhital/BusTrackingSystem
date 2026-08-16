@@ -1,7 +1,20 @@
+// server/server.js
 import express from "express";
 import cors from "cors";
+import http from "http"; // <-- NEW: Built-in Node tool to create a server
+import { Server } from "socket.io"; // <-- NEW: Socket.io for live updates
 
 const app = express();
+const server = http.createServer(app); // <-- NEW: We wrap Express inside the HTTP server
+
+// <-- NEW: We turn on Socket.io and tell it to accept connections from your React app
+const io = new Server(server, {
+  cors: {
+    origin: "http://localhost:5173", // Your React app's address
+    methods: ["GET", "POST"],
+  },
+});
+
 app.use(cors()); // Allows your React app to communicate with this API
 app.use(express.json());
 
@@ -112,11 +125,30 @@ app.post("/api/auth/verify-otp", (req, res) => {
   return res.status(200).json({
     message: "Login authorized",
     user: { id: normalizedId, role: user.role },
-    // Note: In production, you would send a JWT token back here.
+  });
+});
+
+// --- NEW: THE LIVE DISPATCHER ---
+// This listens for drivers updating their location and shouts it to students
+io.on("connection", (socket) => {
+  console.log(`🟢 Phone/Browser Connected: ${socket.id}`);
+
+  // When the driver presses a button, they send a "driver_update" message
+  socket.on("driver_update", (data) => {
+    console.log(`🚌 Driver Update Received for Bus [${data.busNumber}]`);
+
+    // The server takes that message and shouts it out to all students/admins
+    socket.broadcast.emit("bus_location_update", data);
+  });
+
+  // When someone closes the app
+  socket.on("disconnect", () => {
+    console.log(`🔴 Phone/Browser Disconnected: ${socket.id}`);
   });
 });
 
 const PORT = 5000;
-app.listen(PORT, () =>
+// --- CHANGED: We now start 'server' instead of 'app' so WebSockets work ---
+server.listen(PORT, () =>
   console.log(`Backend server running on http://localhost:${PORT}`),
 );
