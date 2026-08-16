@@ -12,7 +12,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
-// Fallback coordinates in case the routing API is blocked by a network firewall
+// Fallback just in case the routing API is blocked
 const FALLBACK_COORDS = [
   [16.231982, 80.550191], // N-Block
   [16.233471, 80.547463], // Main Gate
@@ -53,35 +53,38 @@ export default function LiveMap({
   const [routePath, setRoutePath] = useState(FALLBACK_COORDS);
   const [mounted, setMounted] = useState(false);
 
-  // Safely mark when component mounts to enable Portals
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // --- AUTOMATIC ROAD SNAPPING LOGIC ---
-  // Fetches exact road geometry from OSRM API to draw the perfect curved road line
+  // --- API LOGIC WITH GAP FIX ---
   useEffect(() => {
     const fetchRoadPath = async () => {
       try {
-        // [longitude, latitude] format for OSRM
         const coordsString =
           "80.550191,16.231982;80.547463,16.233471;80.539118,16.23349;80.518118,16.228094;80.5123,16.228231";
         const res = await fetch(
           `https://router.project-osrm.org/route/v1/driving/${coordsString}?geometries=geojson&overview=full`,
         );
         const data = await res.json();
+
         if (data.routes && data.routes[0]) {
-          // Map back to [latitude, longitude] for Leaflet
           const snappedLatLngs = data.routes[0].geometry.coordinates.map(
             (c) => [c[1], c[0]],
           );
-          setRoutePath(snappedLatLngs);
+
+          // FIX: Prepend and append the exact marker coordinates to the API path
+          // This forces the blue line to connect directly to the starting/ending markers!
+          const precisePath = [
+            [16.231982, 80.550191], // Force connect to N-Block marker
+            ...snappedLatLngs,
+            [16.228231, 80.5123], // Force connect to TRR Hostel marker
+          ];
+
+          setRoutePath(precisePath);
         }
       } catch (error) {
-        console.error(
-          "Failed to fetch road path, using fallback lines.",
-          error,
-        );
+        console.error("Failed to fetch road path", error);
       }
     };
     fetchRoadPath();
@@ -92,11 +95,13 @@ export default function LiveMap({
       setIsDark(document.documentElement.classList.contains("dark"));
     };
     checkDarkMode();
+
     const observer = new MutationObserver(checkDarkMode);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class"],
     });
+
     return () => observer.disconnect();
   }, []);
 
@@ -121,7 +126,6 @@ export default function LiveMap({
     popupAnchor: [0, -20],
   });
 
-  // The actual Map JSX block
   const mapContent = (
     <div
       className={
@@ -137,8 +141,7 @@ export default function LiveMap({
         .leaflet-container a.leaflet-popup-close-button { color: ${isDark ? "#E5E5EA" : "#86868B"} !important; }
       `}</style>
 
-      {/* Map Header - Now hosts the button directly to prevent overlap issues */}
-      <header className="relative z-[10000] flex items-center justify-between border-b border-black/5 bg-white/90 px-6 py-4 backdrop-blur-md transition-colors dark:border-white/5 dark:bg-[#1C1C1E]/90">
+      <header className="flex-shrink-0 relative z-[1000] flex items-center justify-between border-b border-black/5 bg-white px-6 py-4 shadow-sm dark:border-white/5 dark:bg-[#1C1C1E]">
         <div>
           <h2 className="text-lg font-bold text-[#1D1D1F] dark:text-[#F5F5F7]">
             Live Tracking
@@ -149,7 +152,7 @@ export default function LiveMap({
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full bg-black/5 px-4 py-1.5 transition-colors dark:bg-white/10">
+          <div className="flex items-center gap-2 rounded-full bg-black/5 px-4 py-1.5 dark:bg-white/10">
             <span className="h-2 w-2 animate-pulse rounded-full bg-[#34C759]"></span>
             <span className="text-xs font-bold uppercase tracking-wider text-[#1D1D1F] dark:text-[#F5F5F7]">
               {busData?.driverStatus === "active" ? "Live" : "Idle / Parked"}
@@ -160,7 +163,7 @@ export default function LiveMap({
             onClick={() => setIsFullscreen(!isFullscreen)}
             className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold transition-all ${
               isFullscreen
-                ? "bg-[#FF3B30] text-white hover:bg-[#D70015] shadow-lg scale-105"
+                ? "bg-[#FF3B30] text-white hover:bg-[#D70015] shadow-md"
                 : "bg-black/5 text-[#1D1D1F] hover:bg-black/10 dark:bg-white/10 dark:text-[#F5F5F7] dark:hover:bg-white/20"
             }`}
           >
@@ -203,18 +206,18 @@ export default function LiveMap({
         </div>
       </header>
 
-      {/* Map Container Area */}
-      <div className="relative flex flex-1 items-center justify-center bg-black/5 transition-colors dark:bg-white/5 z-10 h-full w-full">
+      <div className="relative flex-1 bg-black/5 dark:bg-white/5 w-full h-full">
         <MapContainer
           center={[currentCoords.lat, currentCoords.lng]}
           zoom={16}
           scrollWheelZoom={true}
-          className="h-full w-full"
+          className="absolute inset-0 h-full w-full z-0"
         >
           <TileLayer
             attribution='&copy; <a href="https://carto.com/">CARTO</a>'
             url={tileUrl}
           />
+
           <Polyline
             positions={routePath}
             pathOptions={{
@@ -223,8 +226,10 @@ export default function LiveMap({
               opacity: 0.85,
             }}
           />
+
           <MapRecenter coords={currentCoords} />
           <MapResizeHandler isFullscreen={isFullscreen} />
+
           <Marker
             position={[currentCoords.lat, currentCoords.lng]}
             icon={professionalBusIcon}
@@ -258,7 +263,6 @@ export default function LiveMap({
     </div>
   );
 
-  // Use React Portal to escape dashboard z-index traps completely
   if (isFullscreen && mounted) {
     return createPortal(mapContent, document.body);
   }

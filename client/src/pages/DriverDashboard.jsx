@@ -12,7 +12,6 @@ const ASSIGNED_SHIFT = {
   stops: ["N-Block", "Main Gate", "KM Hostel", "Bezawada Hostel", "TRR Hostel"],
 };
 
-// Raw coordinates mapping
 const STOP_COORDS_MAP = {
   "N-Block": { lat: 16.231982, lng: 80.550191 },
   "Main Gate": { lat: 16.233471, lng: 80.547463 },
@@ -33,8 +32,7 @@ export default function DriverDashboard({ onLogout }) {
     ? [...ASSIGNED_SHIFT.stops].reverse()
     : ASSIGNED_SHIFT.stops;
 
-  // --- AUTOMATIC ROAD SNAPPING ---
-  // When driver changes stops, actively fetch the road curve between Point A and Point B
+  // --- API LOGIC WITH GAP FIX ---
   useEffect(() => {
     if (tripState === "active") {
       const fromCoord = STOP_COORDS_MAP[displayStops[currentStopIndex]];
@@ -51,7 +49,10 @@ export default function DriverDashboard({ onLogout }) {
                 lat: c[1],
                 lng: c[0],
               }));
-              setSegmentWaypoints(pts);
+
+              // FIX: We prepend the exact Start pin, and append the exact End pin
+              // This guarantees the bus physically moves across the gap between the pin and the API road.
+              setSegmentWaypoints([fromCoord, ...pts, toCoord]);
               setWaypointIndex(0);
             } else {
               setSegmentWaypoints([fromCoord, toCoord]);
@@ -62,7 +63,6 @@ export default function DriverDashboard({ onLogout }) {
     }
   }, [tripState, currentStopIndex, isReturnTrip, displayStops]);
 
-  // Determine actual current coords based on the snapped road array
   let currentCoords = STOP_COORDS_MAP["N-Block"];
   if (tripState === "active") {
     if (segmentWaypoints.length > 0) {
@@ -78,7 +78,6 @@ export default function DriverDashboard({ onLogout }) {
     currentCoords = STOP_COORDS_MAP[displayStops[0]];
   }
 
-  // Broadcaster
   useEffect(() => {
     const simulatedEta = Math.max(1, 4 - Math.floor(elapsedSeconds / 60));
     const currentStopName = displayStops[currentStopIndex] || "N-Block";
@@ -92,7 +91,7 @@ export default function DriverDashboard({ onLogout }) {
       currentStop: currentStopName,
       currentNextStop: nextStopName,
       etaMinutes: tripState === "active" ? simulatedEta : 0,
-      coordinates: currentCoords, // Sent precisely snapped to the road!
+      coordinates: currentCoords, // Sent precisely aligned with the API blue line
     };
 
     socket.emit("driver_update", liveUpdate);
@@ -113,14 +112,13 @@ export default function DriverDashboard({ onLogout }) {
       timer = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
 
-        // Glide across road-nodes smoothly
         setWaypointIndex((prevWaypoint) => {
           if (prevWaypoint < segmentWaypoints.length - 1) {
             return Math.min(prevWaypoint + 1, segmentWaypoints.length - 1);
           }
           return prevWaypoint;
         });
-      }, 1000); // 1 point per second for realistic map simulation
+      }, 1000);
     }
     return () => clearInterval(timer);
   }, [tripState, segmentWaypoints]);
