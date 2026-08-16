@@ -1,13 +1,12 @@
 // server/server.js
 import express from "express";
 import cors from "cors";
-import http from "http"; // <-- NEW: Built-in Node tool to create a server
-import { Server } from "socket.io"; // <-- NEW: Socket.io for live updates
+import http from "http";
+import { Server } from "socket.io";
 
 const app = express();
-const server = http.createServer(app); // <-- NEW: We wrap Express inside the HTTP server
+const server = http.createServer(app);
 
-// <-- NEW: We turn on Socket.io and tell it to accept connections from your React app
 const io = new Server(server, {
   cors: {
     origin: "http://localhost:5173", // Your React app's address
@@ -15,28 +14,78 @@ const io = new Server(server, {
   },
 });
 
-app.use(cors()); // Allows your React app to communicate with this API
+app.use(cors());
 app.use(express.json());
 
-// --- SIMULATED DATABASE ---
-// In a real app, you would query MongoDB, MySQL, or PostgreSQL here.
+// --- SIMULATED USER DATABASE (Auth) ---
 const usersDB = {
   "251FA04I95": {
     role: "student",
     phone: "+917989429253",
-    email: "251fa04i95@vignan.ac.in", // Added a dummy email
+    email: "251fa04i95@vignan.ac.in",
   },
   DRV001: {
     role: "driver",
     phone: "+919876543210",
     email: "driver1@vignan.ac.in",
   },
+  DRV002: {
+    role: "driver",
+    phone: "+919876543211",
+    email: "driver2@vignan.ac.in",
+  },
+  DRV003: {
+    role: "driver",
+    phone: "+919876543212",
+    email: "driver3@vignan.ac.in",
+  },
+};
+
+// --- SIMULATED FLEET DATABASE (Real-time telemetry & metadata) ---
+const fleetDB = {
+  "AP-16-TZ-9921": {
+    busNumber: "AP-16-TZ-9921",
+    routeName: "Campus To TRR Hostel",
+    fromLocation: "Campus Depot (N-Block)",
+    toLocation: "TRR Hostel",
+    driverName: "K. Ramesh Babu",
+    driverId: "DRV001",
+    driverStatus: "idle",
+    currentNextStop: "--",
+    etaMinutes: 0,
+    coordinates: { lat: 16.2345, lng: 80.5512 }, // Vignan University area coordinates
+  },
+  "AP-16-TZ-8832": {
+    busNumber: "AP-16-TZ-8832",
+    routeName: "Engineering Loop",
+    fromLocation: "Main Gate",
+    toLocation: "Engineering Block B",
+    driverName: "M. Suresh Kumar",
+    driverId: "DRV002",
+    driverStatus: "idle",
+    currentNextStop: "--",
+    etaMinutes: 0,
+    coordinates: { lat: 16.236, lng: 80.553 },
+  },
+  "AP-16-TZ-1104": {
+    busNumber: "AP-16-TZ-1104",
+    routeName: "Science Express",
+    fromLocation: "Science Library",
+    toLocation: "Hostel Alpha",
+    driverName: "Ch. Venkat Rao",
+    driverId: "DRV003",
+    driverStatus: "idle",
+    currentNextStop: "--",
+    etaMinutes: 0,
+    coordinates: { lat: 16.232, lng: 80.549 },
+  },
 };
 
 // Memory store for active OTPs (ID -> { otp, expiresAt })
 const activeOTPs = new Map();
 
-// POST: Request OTP
+// --- API ENDPOINTS: AUTHENTICATION ---
+
 app.post("/api/auth/request-otp", async (req, res) => {
   const { idNumber, method, role } = req.body;
 
@@ -44,11 +93,9 @@ app.post("/api/auth/request-otp", async (req, res) => {
     return res.status(400).json({ error: "ID is required" });
   }
 
-  // 1. Validate & Normalize Data (Handle case-insensitivity)
   const normalizedId = idNumber.trim().toUpperCase();
   const user = usersDB[normalizedId];
 
-  // 2. Check if user exists in the database and matches the requested role
   if (!user) {
     return res.status(404).json({ error: "User not found in the database." });
   }
@@ -58,24 +105,19 @@ app.post("/api/auth/request-otp", async (req, res) => {
       .json({ error: `This ID is not registered as a ${role}.` });
   }
 
-  // 3. Generate a 6-digit OTP
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-  // Store OTP for 5 minutes
   activeOTPs.set(normalizedId, {
     otp,
     expiresAt: Date.now() + 5 * 60 * 1000,
   });
 
-  // 4. "Send" the OTP
   try {
     if (method === "whatsapp") {
-      // TODO: Call Meta WhatsApp API here
       console.log(
         `[WhatsApp API Simulated] Sending OTP ${otp} to ${user.phone}`,
       );
     } else if (method === "email") {
-      // TODO: Call Nodemailer/Resend API here
       console.log(`[Email API Simulated] Sending OTP ${otp} to ${user.email}`);
     }
 
@@ -91,32 +133,27 @@ app.post("/api/auth/request-otp", async (req, res) => {
   }
 });
 
-// POST: Verify OTP
 app.post("/api/auth/verify-otp", (req, res) => {
   const { idNumber, otp } = req.body;
   const normalizedId = idNumber.trim().toUpperCase();
 
   const record = activeOTPs.get(normalizedId);
 
-  // 1. Check if an OTP was ever requested
   if (!record) {
     return res
       .status(400)
       .json({ error: "No active OTP found. Please request a new one." });
   }
 
-  // 2. Check for expiration
   if (Date.now() > record.expiresAt) {
     activeOTPs.delete(normalizedId);
     return res.status(400).json({ error: "OTP has expired." });
   }
 
-  // 3. Authorize the OTP
   if (record.otp !== otp) {
     return res.status(401).json({ error: "Invalid OTP entered." });
   }
 
-  // 4. Success! Clear the OTP and log the user in
   activeOTPs.delete(normalizedId);
   const user = usersDB[normalizedId];
 
@@ -128,27 +165,46 @@ app.post("/api/auth/verify-otp", (req, res) => {
   });
 });
 
-// --- NEW: THE LIVE DISPATCHER ---
-// This listens for drivers updating their location and shouts it to students
+// --- API ENDPOINTS: FLEET & TRANSPORT DATA ---
+
+// GET: Fetch all vehicles for the Admin dashboard overview
+app.get("/api/fleet", (req, res) => {
+  return res.status(200).json(Object.values(fleetDB));
+});
+
+// GET: Fetch details for a specific bus
+app.get("/api/bus/:busNumber", (req, res) => {
+  const busKey = req.params.busNumber.toUpperCase();
+  const bus = fleetDB[busKey];
+  if (!bus) {
+    return res.status(404).json({ error: "Bus not found" });
+  }
+  return res.status(200).json(bus);
+});
+
+// --- REAL-TIME WEBSOCKET DISPATCHER ---
 io.on("connection", (socket) => {
   console.log(`🟢 Phone/Browser Connected: ${socket.id}`);
 
-  // When the driver presses a button, they send a "driver_update" message
+  // When a driver broadcasts an update, save it in fleetDB and broadcast to everyone
   socket.on("driver_update", (data) => {
     console.log(`🚌 Driver Update Received for Bus [${data.busNumber}]`);
 
-    // The server takes that message and shouts it out to all students/admins
+    // Update the server-side database state in memory
+    if (fleetDB[data.busNumber]) {
+      fleetDB[data.busNumber] = { ...fleetDB[data.busNumber], ...data };
+    }
+
+    // Shout it out to all connected students and admins
     socket.broadcast.emit("bus_location_update", data);
   });
 
-  // When someone closes the app
   socket.on("disconnect", () => {
     console.log(`🔴 Phone/Browser Disconnected: ${socket.id}`);
   });
 });
 
 const PORT = 5000;
-// --- CHANGED: We now start 'server' instead of 'app' so WebSockets work ---
 server.listen(PORT, () =>
   console.log(`Backend server running on http://localhost:${PORT}`),
 );

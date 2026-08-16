@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import DashboardLayout from "../components/DashboardLayout";
 import { io } from "socket.io-client";
 
-// Connect to our Node.js backend
 const socket = io("http://localhost:5000");
 
 const ASSIGNED_SHIFT = {
@@ -13,49 +12,118 @@ const ASSIGNED_SHIFT = {
   stops: ["N-Block", "Main Gate", "KM Hostel", "Bezawada Hostel", "TRR Hostel"],
 };
 
+// Raw coordinates mapping
+const STOP_COORDS_MAP = {
+  "N-Block": { lat: 16.231982, lng: 80.550191 },
+  "Main Gate": { lat: 16.233471, lng: 80.547463 },
+  "KM Hostel": { lat: 16.23349, lng: 80.539118 },
+  "Bezawada Hostel": { lat: 16.228094, lng: 80.518118 },
+  "TRR Hostel": { lat: 16.228231, lng: 80.5123 },
+};
+
 export default function DriverDashboard({ onLogout }) {
   const [tripState, setTripState] = useState("idle");
   const [isReturnTrip, setIsReturnTrip] = useState(false);
   const [currentStopIndex, setCurrentStopIndex] = useState(0);
+  const [waypointIndex, setWaypointIndex] = useState(0);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [segmentWaypoints, setSegmentWaypoints] = useState([]);
 
   const displayStops = isReturnTrip
     ? [...ASSIGNED_SHIFT.stops].reverse()
     : ASSIGNED_SHIFT.stops;
 
-  // --- UPDATED BROADCASTER ---
+  // --- AUTOMATIC ROAD SNAPPING ---
+  // When driver changes stops, actively fetch the road curve between Point A and Point B
+  useEffect(() => {
+    if (tripState === "active") {
+      const fromCoord = STOP_COORDS_MAP[displayStops[currentStopIndex]];
+      const toCoord = STOP_COORDS_MAP[displayStops[currentStopIndex + 1]];
+
+      if (fromCoord && toCoord) {
+        fetch(
+          `https://router.project-osrm.org/route/v1/driving/${fromCoord.lng},${fromCoord.lat};${toCoord.lng},${toCoord.lat}?geometries=geojson&overview=full`,
+        )
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.routes && data.routes[0]) {
+              const pts = data.routes[0].geometry.coordinates.map((c) => ({
+                lat: c[1],
+                lng: c[0],
+              }));
+              setSegmentWaypoints(pts);
+              setWaypointIndex(0);
+            } else {
+              setSegmentWaypoints([fromCoord, toCoord]);
+            }
+          })
+          .catch(() => setSegmentWaypoints([fromCoord, toCoord]));
+      }
+    }
+  }, [tripState, currentStopIndex, isReturnTrip, displayStops]);
+
+  // Determine actual current coords based on the snapped road array
+  let currentCoords = STOP_COORDS_MAP["N-Block"];
+  if (tripState === "active") {
+    if (segmentWaypoints.length > 0) {
+      currentCoords =
+        segmentWaypoints[waypointIndex] ||
+        segmentWaypoints[segmentWaypoints.length - 1];
+    } else {
+      currentCoords = STOP_COORDS_MAP[displayStops[currentStopIndex]];
+    }
+  } else if (tripState === "layover" || tripState === "finished") {
+    currentCoords = STOP_COORDS_MAP[displayStops[displayStops.length - 1]];
+  } else if (tripState === "idle") {
+    currentCoords = STOP_COORDS_MAP[displayStops[0]];
+  }
+
+  // Broadcaster
   useEffect(() => {
     const simulatedEta = Math.max(1, 4 - Math.floor(elapsedSeconds / 60));
-
-    // UPDATED: If we are at the very first stop of the day, say "Campus Depot".
-    // Otherwise, say whatever the last stop was!
-    const previousStop =
-      currentStopIndex > 0
-        ? displayStops[currentStopIndex - 1]
-        : "Campus Depot";
+    const currentStopName = displayStops[currentStopIndex] || "N-Block";
+    const nextStopName = displayStops[currentStopIndex + 1] || "End of Line";
 
     const liveUpdate = {
       busNumber: ASSIGNED_SHIFT.busNumber,
       routeName: ASSIGNED_SHIFT.routeName,
       driverStatus: tripState,
       direction: isReturnTrip ? "back" : "forward",
-      lastStop: previousStop,
-      currentNextStop: displayStops[currentStopIndex] || "--",
+      currentStop: currentStopName,
+      currentNextStop: nextStopName,
       etaMinutes: tripState === "active" ? simulatedEta : 0,
+      coordinates: currentCoords, // Sent precisely snapped to the road!
     };
 
     socket.emit("driver_update", liveUpdate);
-  }, [tripState, isReturnTrip, currentStopIndex, displayStops, elapsedSeconds]);
+  }, [
+    tripState,
+    isReturnTrip,
+    currentStopIndex,
+    waypointIndex,
+    elapsedSeconds,
+    currentCoords,
+    displayStops,
+  ]);
 
+  // Timer & Waypoint progression
   useEffect(() => {
     let timer;
-    if (tripState === "active") {
+    if (tripState === "active" && segmentWaypoints.length > 0) {
       timer = setInterval(() => {
         setElapsedSeconds((prev) => prev + 1);
-      }, 1000);
+
+        // Glide across road-nodes smoothly
+        setWaypointIndex((prevWaypoint) => {
+          if (prevWaypoint < segmentWaypoints.length - 1) {
+            return Math.min(prevWaypoint + 1, segmentWaypoints.length - 1);
+          }
+          return prevWaypoint;
+        });
+      }, 1000); // 1 point per second for realistic map simulation
     }
     return () => clearInterval(timer);
-  }, [tripState]);
+  }, [tripState, segmentWaypoints]);
 
   const formatTime = (totalSeconds) => {
     const m = Math.floor(totalSeconds / 60)
@@ -69,12 +137,14 @@ export default function DriverDashboard({ onLogout }) {
     setTripState("active");
     setIsReturnTrip(false);
     setCurrentStopIndex(0);
+    setSegmentWaypoints([]);
     setElapsedSeconds(0);
   };
 
   const handleNextStop = () => {
     if (currentStopIndex < displayStops.length - 1) {
       setCurrentStopIndex((prev) => prev + 1);
+      setSegmentWaypoints([]);
       setElapsedSeconds(0);
     } else {
       if (!isReturnTrip) {
@@ -88,13 +158,9 @@ export default function DriverDashboard({ onLogout }) {
   const handleStartReturnTrip = () => {
     setTripState("active");
     setIsReturnTrip(true);
-    // FIX: Set index to 1! Since we are already at the layover stop, we are driving to stop #1.
-    setCurrentStopIndex(1);
+    setCurrentStopIndex(0);
+    setSegmentWaypoints([]);
     setElapsedSeconds(0);
-  };
-
-  const handleEndShiftEarly = () => {
-    setTripState("finished");
   };
 
   return (
@@ -224,17 +290,12 @@ export default function DriverDashboard({ onLogout }) {
               {tripState === "active" ? (
                 <div className="flex h-full flex-col justify-center">
                   <p className="text-3xl font-black tracking-tight text-[#1D1D1F] dark:text-[#F5F5F7]">
-                    {displayStops[currentStopIndex]}
+                    {displayStops[currentStopIndex + 1] || "End of Line"}
                   </p>
                   <div className="mt-2 flex items-center gap-2">
                     <p className="text-sm font-bold text-[#007AFF] dark:text-[#0A84FF] truncate">
-                      {isReturnTrip ? "Driving Back" : ASSIGNED_SHIFT.routeName}
+                      Currently at: {displayStops[currentStopIndex]}
                     </p>
-                    {currentStopIndex === displayStops.length - 1 && (
-                      <span className="inline-flex w-max items-center gap-1 rounded-md bg-[#FF9500]/10 px-2 py-0.5 text-xs font-semibold text-[#FF9500] dark:bg-[#FF9F0A]/20 dark:text-[#FF9F0A]">
-                        {isReturnTrip ? "Final Stop" : "End of Route"}
-                      </span>
-                    )}
                   </div>
                 </div>
               ) : tripState === "layover" ? (
@@ -269,7 +330,7 @@ export default function DriverDashboard({ onLogout }) {
             {tripState === "idle" ? (
               <button
                 onClick={handleStartTrip}
-                className="w-full flex-1 rounded-2xl bg-[#34C759] py-4 text-lg font-bold text-white shadow-[0_4px_14px_rgba(52,199,89,0.4)] transition-all active:scale-[0.98] hover:bg-[#30b753] hover:shadow-[0_6px_20px_rgba(52,199,89,0.6)]"
+                className="w-full flex-1 rounded-2xl bg-[#34C759] py-4 text-lg font-bold text-white shadow-[0_4px_14px_rgba(52,199,89,0.4)] transition-all active:scale-[0.98] hover:bg-[#30b753]"
               >
                 Start Driving
               </button>
@@ -277,13 +338,13 @@ export default function DriverDashboard({ onLogout }) {
               <>
                 <button
                   onClick={handleStartReturnTrip}
-                  className="w-full flex-1 rounded-2xl bg-[#FF9500] py-4 text-lg font-bold text-white shadow-[0_4px_14px_rgba(255,149,0,0.4)] transition-all active:scale-[0.98] hover:bg-[#E08300] dark:bg-[#FF9F0A] dark:hover:bg-[#FF9500]"
+                  className="w-full flex-1 rounded-2xl bg-[#FF9500] py-4 text-lg font-bold text-white shadow-[0_4px_14px_rgba(255,149,0,0.4)] transition-all active:scale-[0.98] hover:bg-[#E08300]"
                 >
                   Start Drive Back
                 </button>
                 <button
-                  onClick={handleEndShiftEarly}
-                  className="w-full rounded-2xl bg-[#FF3B30]/10 py-3 text-sm font-bold text-[#FF3B30] transition-all active:scale-[0.98] hover:bg-[#FF3B30]/20 dark:bg-[#FF453A]/10 dark:text-[#FF453A] dark:hover:bg-[#FF453A]/20"
+                  onClick={() => setTripState("finished")}
+                  className="w-full rounded-2xl bg-[#FF3B30]/10 py-3 text-sm font-bold text-[#FF3B30] transition-all active:scale-[0.98] hover:bg-[#FF3B30]/20"
                 >
                   Stop Early
                 </button>
@@ -299,13 +360,13 @@ export default function DriverDashboard({ onLogout }) {
               <>
                 <button
                   onClick={handleNextStop}
-                  className="w-full flex-1 rounded-2xl bg-[#007AFF] py-4 text-lg font-bold text-white shadow-[0_4px_14px_rgba(0,122,255,0.4)] transition-all active:scale-[0.98] hover:bg-[#0071E3] dark:bg-[#0A84FF] dark:hover:bg-[#007AFF] dark:shadow-[0_4px_14px_rgba(10,132,255,0.4)]"
+                  className="w-full flex-1 rounded-2xl bg-[#007AFF] py-4 text-lg font-bold text-white shadow-[0_4px_14px_rgba(0,122,255,0.4)] transition-all active:scale-[0.98] hover:bg-[#0071E3]"
                 >
                   Arrived at Stop
                 </button>
                 <button
-                  onClick={handleEndShiftEarly}
-                  className="w-full rounded-2xl bg-[#FF3B30]/10 py-3 text-sm font-bold text-[#FF3B30] transition-all active:scale-[0.98] hover:bg-[#FF3B30]/20 dark:bg-[#FF453A]/10 dark:text-[#FF453A] dark:hover:bg-[#FF453A]/20"
+                  onClick={() => setTripState("finished")}
+                  className="w-full rounded-2xl bg-[#FF3B30]/10 py-3 text-sm font-bold text-[#FF3B30] transition-all active:scale-[0.98] hover:bg-[#FF3B30]/20"
                 >
                   Stop Early
                 </button>
@@ -321,7 +382,7 @@ export default function DriverDashboard({ onLogout }) {
               List of Stops
             </h2>
             {isReturnTrip && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-[#007AFF]/10 px-2 py-1 text-xs font-bold uppercase tracking-wider text-[#007AFF] dark:bg-[#0A84FF]/20 dark:text-[#0A84FF]">
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#007AFF]/10 px-2 py-1 text-xs font-bold uppercase tracking-wider text-[#007AFF]">
                 Driving Back
               </span>
             )}
